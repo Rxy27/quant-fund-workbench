@@ -1,0 +1,22 @@
+{
+  "reference_fund": "110020",
+  "portfolio_max_drawdown_tolerance": 0.15,
+  "portfolio_target_volatility": 0.08,
+  "single_fund_max_weight": 0.4,
+  "single_fund_stop_loss": 0.2,
+  "role_target_weights": {
+    "进攻型": 0.4,
+    "防守型": 0.2,
+    "分散型": 0.1,
+    "对冲型": 0.0
+  },
+  "rebalance_threshold_pp": 0,
+  "valuation_percentile_threshold": 0.3,
+  "trend_deviation_band": 0.1,
+  "role_failure_correlation": 0.8,
+  "role_failure_historical_low": 0.4,
+  "active_fund_drawdown_threshold": 0.2,
+  "active_fund_manager_change_months": 6,
+  "active_fund_scale_change_ratio": 0.5,
+  "active_fund_turnover_ratio": 1.0
+}

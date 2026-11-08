@@ -1,0 +1,13 @@
+{
+  "trend_ma_days": 200,
+  "correlation_window_days": 252,
+  "annualization_days": 252,
+  "valuation_history_years": 5,
+  "valuation_neutral_threshold": 0.5,
+  "volatility_buffer": 0.02,
+  "scan_step": 0.01,
+  "scan_upper_limit": 0.5,
+  "observation_position_threshold": 0.05,
+  "min_data_days_required": 252,
+  "min_ma_days_required": 200
+}

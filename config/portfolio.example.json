@@ -1,0 +1,32 @@
+{
+  "holdings": [
+    {
+      "code": "CASH",
+      "weight": 1.0
+    }
+  ],
+  "risk_free_rate": 0.0,
+  "annualization_days": 252,
+  "minimum_overlap": 60,
+  "sensitivity_window": 756,
+  "pre_event_window": 60,
+  "inclusion_weights": [
+    0.1,
+    0.2,
+    0.3
+  ],
+  "equity_reference": "110020",
+  "bond_reference": "003358",
+  "fee_comparison_codes": [
+    "110020",
+    "007044"
+  ],
+  "role_rules": {
+    "redundant_correlation": 0.9,
+    "hedge_correlation": -0.3,
+    "low_correlation": 0.3,
+    "low_volatility": 0.1,
+    "high_stock_correlation": 0.6
+  },
+  "notes": "空账户模板；现金零息。请通过界面填写自己的持仓。"
+}
