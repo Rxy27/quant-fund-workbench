@@ -73,7 +73,34 @@ SYSTEM_PROMPT = """你是一位克制、专业的基金投资参谋。你只能�
 def load_settings(directory=None):
     path = Path(directory or state.CONFIG_DIR) / 'ai_settings.json'
     value = {**DEFAULT_SETTINGS, **state.read_json(path)} if path.exists() else dict(DEFAULT_SETTINGS)
+    # Legacy JSON keys are deliberately ignored; secrets belong to the server.
+    value['api_key'] = ''
+    value.update(server_ai_settings())
     validate_settings(value)
+    return value
+
+
+def server_ai_settings():
+    """Environment wins over Streamlit secrets; never populate browser widgets."""
+    import streamlit as st
+
+    try:
+        secrets = st.secrets.get('ai', {})
+        value = {name: secrets[name] for name in ('api_key', 'base_url', 'model_id')
+                 if name in secrets}
+        if not value.get('api_key'):
+            value['api_key'] = st.secrets.get('OPENAI_API_KEY', '')
+    except FileNotFoundError:
+        value = {}
+    for field, names in {
+        'api_key': ('QUANT_AI_API_KEY', 'OPENAI_API_KEY'),
+        'base_url': ('QUANT_AI_BASE_URL',),
+        'model_id': ('QUANT_AI_MODEL_ID',),
+    }.items():
+        for name in names:
+            if os.environ.get(name, '').strip():
+                value[field] = os.environ[name].strip()
+                break
     return value
 
 
@@ -105,7 +132,8 @@ def save_settings(value, directory=None):
     value['base_url'] = clean_base_url(value['base_url'])
     validate_settings(value)
     value['effort'] = value['effort'].strip()
-    state.write_json(Path(directory or state.CONFIG_DIR) / 'ai_settings.json', value)
+    state.write_json(Path(directory or state.CONFIG_DIR) / 'ai_settings.json',
+                     {**value, 'api_key': ''})
     return value
 
 

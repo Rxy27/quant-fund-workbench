@@ -18,3 +18,9 @@ config/rule_parameters.json
 config/scenarios.json
 config/mappings.json
 config/intraday_etf_mapping.json
+config/*.json
+!config/*.example.json
+!config/index_mapping.json
+.env
+.env.*
+!.env.example

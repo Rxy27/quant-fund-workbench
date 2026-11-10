@@ -1,8 +1,8 @@
 # 有数 · 基金分析工作台
 
-> **环境要求：必须 Python >= 3.10。** 建议使用独立虚拟环境；已在 Python 3.10.20 验证安装、测试与启动。
+> **环境要求：必须 Python >= 3.11，建议 Python 3.12。** 使用独立虚拟环境。
 
-本项目为兼容 Python 3.10，Streamlit 版本锁定在 1.66.0 以下，numpy 锁定在 <3.0.0（Python 3.10 会解析到 2.2.x）。如果你使用 Python 3.12+ 并希望使用更新版本，可自行调整上限，但需自行验证兼容性。
+本次安全更新升级了 Streamlit、Pillow、PyArrow 和 lxml，并提供带 SHA-256 哈希的完整依赖锁文件。Python 3.10 已无法安装所需安全更新。已有用户请先阅读 [安全配置与升级](docs/SECURITY.md)，保留自己的账户配置。
 
 基于 Streamlit 的基金研究与持仓工作台，支持 Windows、macOS、Linux。
 
@@ -51,10 +51,10 @@
 ### 1. 安装核心依赖
 
 ```sh
-pip install -r requirements.txt
+python -m pip install --require-hashes -r requirements.lock
 ```
 
-依赖采用兼容 Python 3.10 的版本区间；安装器会根据当前 Python 版本选择符合条件的版本。此文件不是精确锁文件，升级后应重新运行测试。本次 Python 3.10.20 实际解析为 NumPy 2.2.6、pandas 2.3.3、Streamlit 1.65.0；无参数 `pytest` 结果为 132 项通过、5 项显式跳过。
+`requirements.txt` 维护直接依赖范围，日常安装使用 `requirements.lock` 固定所有传递依赖并校验下载哈希。修改依赖后需重新生成运行和开发锁文件、运行测试并扫描漏洞，具体命令见安全说明。
 
 ### 2. 复制全部配置模板
 
@@ -92,7 +92,7 @@ cp config/intraday_etf_mapping.example.json config/intraday_etf_mapping.json
 
 请复制全部模板：除账户、风险和 AI 设置外，界面默认值、规则参数、压力情景、组合设置与盘中 ETF 映射也是当前代码的配置依赖。`config/index_mapping.json` 已随包提供，用于指数估值映射，请保留。
 
-模板账户金额为 0、持仓和成本记录为空、AI 默认关闭且 API Key 为空。程序只读取真实 `.json`；不会自动改读 `.example.json`。可在界面填写持仓及风险设置；需要 AI 时再填写自己的兼容接口、模型和 Key。密钥保存在本地真实配置中，不应提交。
+模板账户金额为 0、持仓和成本记录为空、AI 默认关闭且 API Key 为空。程序只读取真实 `.json`；不会自动改读 `.example.json`。可在界面填写持仓及风险设置。AI 密钥使用环境变量或 Streamlit secrets；界面临时输入仅在当前会话有效，不写入 JSON，旧 JSON 密钥不再读取。详见 [安全配置](docs/SECURITY.md)。
 
 ### 3. 启动应用
 
@@ -102,17 +102,22 @@ streamlit run app.py
 
 按终端提示打开浏览器。此发行包入口为 Streamlit 工作台。默认空账户可直接进入界面；开始分析前填写自己的持仓或基金代码。首次使用没有本地行情缓存：联网分析需关闭“仅使用本地缓存”；历史沙盘可按界面提示联网获取。请求失败会显示缺失或降级状态，不会伪造行情。
 
+默认仅监听 `127.0.0.1`。远程使用需要受认证的隧道或带 TLS 和身份认证的反向代理，并禁止绕过代理直连。应用使用共享本地账户文件，不提供多用户数据隔离，不能直接作为公网多用户服务。
+
 ## 配置、缓存与测试
 
 - `core/`、`ui/` 和 `app.py` 来自本次打包时的当前源码，包含最新实时行情模块；`core/templates/` 为 HTML 导出所需模板。
 - `config/` 只发布脱敏模板和公共指数映射。账户、成本、净值快照、日志与历史导出均不随包分发；运行时缓存和输出由程序按需创建。
-- 已提供 `.gitignore`，精确忽略真实运行配置并保留指数映射。测试中的金额、报价及假密钥是合成测试夹具，不是用户数据。
+- 已提供 `.gitignore`，默认忽略真实 JSON 配置、环境变量文件和 secrets，只保留模板与公共指数映射。测试中的金额、报价及假密钥是合成测试夹具，不是用户数据。
 - 安装测试依赖后，在本目录直接执行无参数 `pytest`。`pytest.ini` 仅收集 `tests/` 和 `core/tests/`；测试配置从脱敏模板复制到临时目录，业务代码仍只读取真实 `.json`，测试不读取或修改用户账户配置。
 
 ```sh
-pip install -r requirements-dev.txt
-pytest
+python -m pip install --require-hashes -r requirements-dev.lock
+python -m pytest
+python -m pip_audit --local
 ```
+
+本次安全更新已在 Windows 的 Python 3.11、3.12 独立环境验证安装、依赖一致性和测试；安全检查覆盖密钥持久化、服务端密钥回显/目的地址、会话隔离、路径输入与监听配置。GitHub Actions 另覆盖 Ubuntu/Windows 两个平台。`pip-audit` 的结果只代表查询时已收录的上游公告。
 
 需要私有历史快照或独立旧账本的测试显式跳过。`core/` 中的浏览器验收辅助脚本需要额外安装 Playwright 和浏览器，未列入工作台核心依赖；历史缓存验收脚本需要用户自行获取行情，不属于开箱启动流程。
 

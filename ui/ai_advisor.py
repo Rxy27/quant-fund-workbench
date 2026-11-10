@@ -56,9 +56,18 @@ def render_settings(*, show_investment_plan=True):
         settings = dict(DEFAULT_SETTINGS)
         st.warning('AI 配置无法读取；请检查并重新保存 AI 配置。')
     s = st.session_state
+    managed_key = bool(settings['api_key'])
+    if not managed_key:
+        settings = s.get('ai_active_settings', settings)
+    else:
+        # A browser must not redirect the server's credential to another host.
+        s.pop('ai_active_settings', None)
+        s.ai_input_base_url = settings['base_url']
+        s.ai_input_api_key = ''
     # 同一会话中的 rerun 会保留这些状态；硬刷新后的新会话从已保存配置初始化。
-    for field in ('enabled', 'base_url', 'api_key', 'model_id', 'effort'):
+    for field in ('enabled', 'base_url', 'model_id', 'effort'):
         s.setdefault('ai_input_' + field, settings.get(field, ''))
+    s.setdefault('ai_input_api_key', '')
     for key, value in dict(is_testing=False, available_models=[], model_metadata={},
                            test_status=None).items():
         s.setdefault(key, value)
@@ -85,12 +94,16 @@ def render_settings(*, show_investment_plan=True):
 
     with st.expander('⚙️ AI 参谋设置', key='ai_settings_panel'):
         st.caption('兼容 OpenAI、DeepSeek、Kimi 等 Chat Completions 接口。')
+        st.caption('长期使用请设置环境变量或 Streamlit secrets；旧 JSON 中的密钥不再读取。')
         # 移除 form 的批量提交语义，保留控件顺序，使模型切换立即 rerun。
         st.toggle('是否启用 AI 总结', key='ai_input_enabled', disabled=s.is_testing)
-        st.text_input('Base URL', key='ai_input_base_url', disabled=s.is_testing,
+        st.text_input('Base URL', key='ai_input_base_url', disabled=s.is_testing or managed_key,
             help='填到 v1 结尾，如 https://api.foxapi.cn/v1', on_change=_clear_model_catalog)
         st.text_input('API Key', key='ai_input_api_key', type='password',
-            on_change=_clear_model_catalog, disabled=s.is_testing)
+            on_change=_clear_model_catalog, disabled=s.is_testing or managed_key,
+            help='服务端密钥不会回填；临时输入仅在当前会话中保存。')
+        if managed_key:
+            st.caption('已配置服务端密钥。服务地址由管理员在环境变量或本机配置中设置。')
         current_model = s.ai_input_model_id
         if s.available_models:
             # 下拉框与文本框使用独立 key；保留目录更新后仍有效的选择。
@@ -111,7 +124,7 @@ def render_settings(*, show_investment_plan=True):
             st.selectbox('推理强度（Effort）', levels, key='ai_input_effort', disabled=s.is_testing)
         else:
             s.ai_input_effort = ''
-        st.caption('启用开关即时生效；接口配置保存后生效。密钥保存在本机 JSON；调用时用于所填服务的鉴权，量化摘要会发送至该服务。')
+        st.caption('启用开关即时生效；接口配置保存后生效。密钥不写入 JSON；临时输入只在当前会话生效。启用后量化摘要会发送至所选服务。')
         st.caption('测试连接仅拉取模型列表，不发送聊天请求。无需测试连接，可直接手动填写 Model ID 并保存配置。')
         st.button('测试连接', key='ai_test_button', on_click=_begin_connection_test,
                   disabled=s.is_testing, width='stretch')
@@ -123,11 +136,13 @@ def render_settings(*, show_investment_plan=True):
         if save:
             try:
                 draft = dict(enabled=s.ai_input_enabled, base_url=clean_base_url(s.ai_input_base_url),
-                    api_key=s.ai_input_api_key.strip(), model_id=s.ai_input_model_id.strip(),
+                    api_key=settings['api_key'] if managed_key else s.ai_input_api_key.strip(),
+                    model_id=s.ai_input_model_id.strip(),
                     temperature=settings['temperature'], effort=s.ai_input_effort)
                 settings = save_settings(draft)
+                s.ai_active_settings = {**settings, 'api_key': ''} if managed_key else settings
                 s.pop('ai_summary_cache', None)
-                st.success('密钥仅保存在本机，不会上传云端')
+                st.success('配置已保存；密钥未写入文件。临时密钥在关闭会话后失效。')
             except (OSError, ValueError, TypeError):
                 st.error('AI 配置未保存。请检查 URL、Model ID 和本机文件写入权限。')
         if not s.ai_input_enabled:
@@ -137,7 +152,8 @@ def render_settings(*, show_investment_plan=True):
         if s.is_testing:
             try:
                 with st.spinner('正在测试连接…'):
-                    result = test_connection(s.ai_input_base_url, s.ai_input_api_key, s.ai_input_model_id)
+                    result = test_connection(settings['base_url'] if managed_key else s.ai_input_base_url,
+                        settings['api_key'] if managed_key else s.ai_input_api_key, s.ai_input_model_id)
             except httpx.TimeoutException:
                 result = dict(success=False, msg=NETWORK_TIMEOUT_MESSAGE)
             except Exception:

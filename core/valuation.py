@@ -4,6 +4,7 @@ import akshare as ak
 import time
 from datetime import datetime
 import json
+import re
 from pathlib import Path
 from .network import bounded_call
 
@@ -32,6 +33,8 @@ def get_valuation_data(symbol: str, index_code: str, offline: bool = False):
     核心获取函数：流控防刷 + 缓存优先 + 抛异常兜底 + 读写主键对齐
     """
     global _last_ak_fail_time
+    if not isinstance(index_code, str) or not re.fullmatch(r'[0-9]{6}', index_code):
+        raise ValueError('指数代码须为六位数字')
     (ROOT / "data").mkdir(exist_ok=True)
     filepath = ROOT / "data" / f"valuation_cache_{index_code}.parquet"
 
